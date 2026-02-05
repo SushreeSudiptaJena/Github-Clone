@@ -7,7 +7,7 @@ services:
     buildCommand: |
       pip install --no-cache-dir -r backend/requirements.txt
     startCommand: |
-      cd backend && gunicorn -w 1 -k uvicorn.workers.UvicornWorker app.main:app --bind 0.0.0.0:$PORT
+      cd backend && gunicorn -w 1 -k uvicorn.workers.UvicornWorker asgi:app --bind 0.0.0.0:$PORT
     autoDeploy: true
     envVars:
       - key: OPENAI_API_KEY
