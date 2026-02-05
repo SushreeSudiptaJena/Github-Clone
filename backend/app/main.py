@@ -11,13 +11,22 @@ from .models import Message, Session
 from .crud import create_session, get_sessions, get_session, create_message, get_messages, get_session_by_name, get_user_by_email, create_user, get_user_by_username, update_user_password
 import asyncio
 from sqlmodel.ext.asyncio.session import AsyncSession
-
+from .llm_service import call_chat, stream_chat
+from contextlib import asynccontextmanager
+from .db import get_session
 # Monitoring and rate limiting
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
 from prometheus_fastapi_instrumentator import Instrumentator
 import os
 
+@asynccontextmanager
+async def get_ws_db():
+    async for session in get_session():
+        try:
+            yield session
+        finally:
+            break
 app = FastAPI(title="Gemini-Clone API")
 
 # Application environment
@@ -29,7 +38,9 @@ app.state.limiter = limiter
 app.add_exception_handler(429, _rate_limit_exceeded_handler)
 
 # Prometheus instrumentation
-Instrumentator().instrument(app).expose(app)
+if APP_ENV == "production":
+    Instrumentator().instrument(app).expose(app)
+
 
 app.add_middleware(
     CORSMiddleware,
@@ -126,6 +137,7 @@ async def change_password(data: PasswordResetConfirm, db: AsyncSession = Depends
     await update_user_password(db, current_user.id, hashed)
     return {"ok": True, "message": "Password changed"}
 
+
 @app.post("/api/sessions")
 async def api_create_session(payload: SessionCreate, db: AsyncSession = Depends(get_session), current_user=Depends(get_current_user_header)):
     existing = await get_session_by_name(db, payload.name, current_user.id)
@@ -180,7 +192,7 @@ async def websocket_endpoint(websocket: WebSocket):
         token = data.get('token')
 
         # get db session via dependency emulation and validate token
-        async for db in get_session():
+        async with get_ws_db() as db:
             user = None
             if token:
                 user = await get_user_from_token(token, db)
