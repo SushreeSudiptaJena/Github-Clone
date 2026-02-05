@@ -9,3 +9,5 @@ build/
 **/dev.db
 traefik/acme.json
 backups/
+backend/.venv/
+frontend/.env
