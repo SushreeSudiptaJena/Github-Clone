@@ -11,20 +11,16 @@ from .crud import create_session, get_sessions, get_session, create_message, get
 import asyncio
 from sqlmodel.ext.asyncio.session import AsyncSession
 
-# Monitoring, rate limiting, and error reporting
+# Monitoring and rate limiting
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
 from prometheus_fastapi_instrumentator import Instrumentator
-import sentry_sdk
 import os
 
 app = FastAPI(title="Gemini-Clone API")
 
-# Initialize Sentry if provided
-SENTRY_DSN = os.getenv('SENTRY_DSN')
+# Application environment
 APP_ENV = os.getenv('APP_ENV', 'development')
-if SENTRY_DSN:
-    sentry_sdk.init(dsn=SENTRY_DSN, environment=APP_ENV, traces_sample_rate=0.1)
 
 # Rate limiter (use Redis in production by setting up a Redis URL)
 limiter = Limiter(key_func=get_remote_address)

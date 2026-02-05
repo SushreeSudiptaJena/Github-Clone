@@ -13,11 +13,11 @@ Add these as **Repository secrets** so Actions (migrations and publish workflows
 - `OPENAI_API_KEY` (optional)
   - If you want model calls to work on the backend (OpenAI paid or API key).
 - `SENDGRID_API_KEY` (optional)
-  - To send password reset emails via SendGrid in production.
+  - To send password reset emails via SendGrid in production. If not set, reset emails are written to `backend/outbox/` for manual retrieval (useful if you prefer not to use a paid provider).
 - `EMAIL_FROM` (optional)
   - Verified sender email used for password reset emails (e.g., `no-reply@yourdomain.com`).
 - `SENTRY_DSN` (optional)
-  - For Sentry error reporting (if you want production monitoring).
+  - For Sentry error reporting (optional). Sentry is not required; the app will run fine without it.
 - `DOCKERHUB_USERNAME` and `DOCKERHUB_TOKEN` (optional)
   - For the `publish.yml` workflow that builds & pushes Docker images.
 

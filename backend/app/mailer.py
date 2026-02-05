@@ -1,12 +1,12 @@
 import os
 import asyncio
 from typing import Optional
-from sendgrid import SendGridAPIClient
-from sendgrid.helpers.mail import Mail
 from jinja2 import Environment, FileSystemLoader, select_autoescape
+from datetime import datetime
 
 BASE_DIR = os.path.abspath(os.path.dirname(__file__))
 TEMPLATES_DIR = os.path.join(BASE_DIR, 'templates')
+OUTBOX_DIR = os.path.join(BASE_DIR, '..', 'outbox')
 
 SENDGRID_API_KEY = os.getenv('SENDGRID_API_KEY')
 EMAIL_FROM = os.getenv('EMAIL_FROM', 'no-reply@example.com')
@@ -18,9 +18,11 @@ jinja_env = Environment(
     autoescape=select_autoescape(['html', 'xml'])
 )
 
+os.makedirs(OUTBOX_DIR, exist_ok=True)
+
 async def send_reset_email(to_email: str, token: str) -> dict:
-    """Send password reset email using Jinja templates. Returns dict with {'sent': True} when sent.
-    If no SENDGRID_API_KEY is configured, returns {'sent': False, 'token': token, 'preview_link': link} so devs can use it.
+    """Send password reset email using Jinja templates.
+    If SENDGRID_API_KEY is not configured, email is written to `backend/outbox/` and returned as preview info.
     """
     reset_link = f"{FRONTEND_URL}/?reset_token={token}"
 
@@ -36,12 +38,25 @@ async def send_reset_email(to_email: str, token: str) -> dict:
         # Templates optional; fall back to simple messages
         pass
 
-    # Only return token in non-production environments for developer convenience
-    app_env = os.getenv('APP_ENV', 'development')
+    # If no SendGrid configured, write to outbox for manual retrieval
     if not SENDGRID_API_KEY:
-        if app_env == 'production':
-            return {'sent': False}
-        return {'sent': False, 'token': token, 'preview_link': reset_link}
+        ts = datetime.utcnow().strftime('%Y%m%dT%H%M%SZ')
+        safe_email = to_email.replace('@', '_at_')
+        base_name = f"reset_{safe_email}_{ts}"
+        txt_path = os.path.join(OUTBOX_DIR, base_name + '.txt')
+        html_path = os.path.join(OUTBOX_DIR, base_name + '.html')
+        with open(txt_path, 'w', encoding='utf-8') as f:
+            f.write(plain_text)
+        with open(html_path, 'w', encoding='utf-8') as f:
+            f.write(html_content)
+        return {'sent': False, 'outbox': {'txt': txt_path, 'html': html_path}, 'token': token, 'preview_link': reset_link}
+
+    # Lazy import SendGrid only when needed (keeps library optional)
+    try:
+        from sendgrid import SendGridAPIClient
+        from sendgrid.helpers.mail import Mail
+    except Exception:
+        return {'sent': False, 'error': 'SendGrid library not installed'}
 
     message = Mail(
         from_email=EMAIL_FROM,
