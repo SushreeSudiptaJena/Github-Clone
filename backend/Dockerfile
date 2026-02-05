@@ -19,3 +19,5 @@ ENV PYTHONPATH=/app:/app/backend
 
 # Use Gunicorn with a single Uvicorn worker and bind to the runtime $PORT
 CMD ["sh", "-c", "gunicorn -w 1 -k uvicorn.workers.UvicornWorker app:app --bind 0.0.0.0:${PORT:-8000}"]
+
+# rebuild: $(date -u)
