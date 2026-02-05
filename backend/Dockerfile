@@ -5,6 +5,7 @@ FROM python:3.11-slim
 # requirements file is available (prefer backend/requirements.txt).
 WORKDIR /app
 COPY . /app
+COPY asgi.py /app/asgi.py
 RUN if [ -f /app/backend/requirements.txt ]; then \
 			pip install --no-cache-dir -r /app/backend/requirements.txt; \
 		elif [ -f /app/requirements.txt ]; then \
