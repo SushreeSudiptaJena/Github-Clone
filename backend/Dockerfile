@@ -18,6 +18,7 @@ RUN if [ -f /app/backend/requirements.txt ]; then \
 ENV PYTHONPATH=/app:/app/backend
 
 # Use Gunicorn with a single Uvicorn worker and bind to the runtime $PORT
+# Use Gunicorn with a single Uvicorn worker and bind to the runtime $PORT
 CMD ["sh", "-c", "gunicorn -w 1 -k uvicorn.workers.UvicornWorker asgi:app --bind 0.0.0.0:${PORT:-8000}"]
 
-# rebuild: $(date -u)
+# rebuild-cache-bust: 2026-02-06T00:00:00Z
