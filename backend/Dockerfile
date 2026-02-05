@@ -8,4 +8,5 @@ COPY ./app ./app
 COPY ./alembic.ini ./alembic.ini
 COPY ./alembic ./alembic
 ENV PYTHONPATH=/app
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+# Use shell form so we can expand $PORT at runtime (default 8000)
+CMD ["sh", "-c", "uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}"]

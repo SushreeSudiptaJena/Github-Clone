@@ -1,5 +1,6 @@
 import os
 import json
+from typing import Optional
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Depends, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, EmailStr
@@ -7,7 +8,7 @@ from .db import init_db, get_session
 from .openai_adapter import call_chat, stream_chat
 from sqlmodel import select
 from .models import Message, Session
-from .crud import create_session, get_sessions, get_session, create_message, get_messages, get_session_by_name, get_user_by_email
+from .crud import create_session, get_sessions, get_session, create_message, get_messages, get_session_by_name, get_user_by_email, create_user, get_user_by_username, update_user_password
 import asyncio
 from sqlmodel.ext.asyncio.session import AsyncSession
 
@@ -126,7 +127,7 @@ async def change_password(data: PasswordResetConfirm, db: AsyncSession = Depends
     return {"ok": True, "message": "Password changed"}
 
 @app.post("/api/sessions")
-async def api_create_session(payload: SessionCreate, db: AsyncSession = Depends(get_session), current_user=Depends(get_current_user)):
+async def api_create_session(payload: SessionCreate, db: AsyncSession = Depends(get_session), current_user=Depends(get_current_user_header)):
     existing = await get_session_by_name(db, payload.name, current_user.id)
     if existing:
         return existing
@@ -134,11 +135,11 @@ async def api_create_session(payload: SessionCreate, db: AsyncSession = Depends(
     return s
 
 @app.get("/api/sessions")
-async def api_get_sessions(db: AsyncSession = Depends(get_session), current_user=Depends(get_current_user)):
+async def api_get_sessions(db: AsyncSession = Depends(get_session), current_user=Depends(get_current_user_header)):
     return await get_sessions(db, current_user.id)
 
 @app.get("/api/sessions/{session_id}/messages")
-async def api_get_messages(session_id: int, db: AsyncSession = Depends(get_session), current_user=Depends(get_current_user)):
+async def api_get_messages(session_id: int, db: AsyncSession = Depends(get_session), current_user=Depends(get_current_user_header)):
     s = await get_session(db, session_id)
     if not s or s.user_id != current_user.id:
         raise HTTPException(status_code=404, detail="Session not found")
