@@ -1,0 +1,14 @@
+<html>
+  <body>
+    <p>Hello,</p>
+    <p>We received a request to reset your password. Click the button below to reset it:</p>
+    <p style="text-align:center;margin:20px">
+      <a href="{{ reset_link }}" style="background:#2563eb;color:white;padding:12px 20px;border-radius:6px;text-decoration:none;">Reset password</a>
+    </p>
+    <p>If the button doesn't work, copy and paste the following link into your browser:</p>
+    <p><a href="{{ reset_link }}">{{ reset_link }}</a></p>
+    <p>Or copy the token below into the app:</p>
+    <pre>{{ token }}</pre>
+    <p>If you didn't request this, you can safely ignore this message.</p>
+  </body>
+</html>

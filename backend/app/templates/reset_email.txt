@@ -1,0 +1,11 @@
+Hello,
+
+We received a request to reset your password.
+
+Reset link: {{ reset_link }}
+
+If the link doesn't work, copy and paste the following token into the app:
+
+{{ token }}
+
+If you didn't request this, you can ignore this message.

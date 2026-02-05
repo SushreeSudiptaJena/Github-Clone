@@ -1,0 +1,11 @@
+venv/
+__pycache__/
+*.pyc
+node_modules/
+.env
+.env.local
+dist/
+build/
+**/dev.db
+traefik/acme.json
+backups/
