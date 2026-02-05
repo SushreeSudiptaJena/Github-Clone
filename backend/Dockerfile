@@ -13,8 +13,9 @@ RUN if [ -f /app/backend/requirements.txt ]; then \
 			echo "No requirements file found"; exit 1; \
 		fi
 
-# Ensure Python can import the `app` package located at /app/backend/app
-ENV PYTHONPATH=/app/backend
+# Ensure Python can import the `app` package located at /app/backend and top-level
+# `app.py` at /app
+ENV PYTHONPATH=/app:/app/backend
 
-# Use shell form so we can expand $PORT at runtime (default 8000)
-CMD ["sh", "-c", "uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}"]
+# Use Gunicorn with a single Uvicorn worker and bind to the runtime $PORT
+CMD ["sh", "-c", "gunicorn -w 1 -k uvicorn.workers.UvicornWorker app:app --bind 0.0.0.0:${PORT:-8000}"]
