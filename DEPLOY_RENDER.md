@@ -13,7 +13,7 @@ This guide helps you deploy the backend (FastAPI) and frontend (Vite) using Rend
   - `gemini-backend` (Web Service, Docker)
     - Dockerfile path: `backend/Dockerfile`
     - Environment: set `APP_ENV=production`
-    - Add env vars: `SECRET_KEY`, `OPENAI_API_KEY`, `SENDGRID_API_KEY` (optional), `EMAIL_FROM`, `FRONTEND_URL`
+    - Add env vars: `SECRET_KEY`, `OPENAI_API_KEY` (optional), `FRONTEND_URL`
   - `gemini-frontend` (Static Site) OR deploy frontend to Vercel
     - Root: `frontend`
     - Build Command: `npm ci && npm run build`
@@ -38,7 +38,7 @@ This guide helps you deploy the backend (FastAPI) and frontend (Vite) using Rend
   - `SECRET_KEY` (generate a long random value)
   - `APP_ENV=production`
   - `OPENAI_API_KEY` (if using OpenAI)
-  - `SENDGRID_API_KEY` and `EMAIL_FROM` (if you want password reset emails to work)
+  - Email-based password reset is not supported. Password changes are available only via the authenticated `change-password` endpoint.
   - `FRONTEND_URL` (e.g., `https://your-frontend-on-vercel-or-render`)
 
 ## 6) Deploy frontend (Vercel recommended)

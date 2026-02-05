@@ -99,51 +99,18 @@ class PasswordResetRequest(BaseModel):
 @app.post('/api/request-password-reset')
 @limiter.limit("5/minute")
 async def request_password_reset(payload: PasswordResetRequest, db: AsyncSession = Depends(get_session)):
-    user = None
-    if payload.email:
-        user = await get_user_by_email(db, payload.email)
-    elif payload.username:
-        user = await get_user_by_username(db, payload.username)
-
-    # Always return success to avoid username/email enumeration
-    if not user:
-        return {"ok": True, "message": "If the user exists, a reset token has been issued (in production emailed)."}
-
-    token = create_password_reset_token(user.username)
-    # Send email if possible
-    result = await send_reset_email(user.email, token) if user.email else {'sent': False, 'message': 'No email configured for user'}
-    if result.get('sent'):
-        return {"ok": True, "message": "Reset token sent to your email."}
-    # Fallback for dev: include token/preview link in response only when not production
-    if os.getenv('APP_ENV', 'development') != 'production':
-        return {"ok": True, "reset_token": result.get('token'), "preview_link": result.get('preview_link'), "message": result.get('error') or 'Email not configured or failed; returning token for dev.'}
-    return {"ok": True, "message": "If the user exists, a reset token has been issued (in production it is emailed)."}
+    # Password reset via email is not supported in this deployment.
+    # We intentionally do not provide email-based password reset functionality.
+    raise HTTPException(status_code=410, detail="Password reset via email is not supported. Contact an administrator to reset your password.")
 
 class PasswordResetConfirm(BaseModel):
     token: str
     new_password: str
 
-@app.post('/api/request-password-reset')
-async def request_password_reset(payload: PasswordResetRequest, db: AsyncSession = Depends(get_session)):
-    user = await get_user_by_username(db, payload.username)
-    # Always return success to avoid username enumeration
-    if not user:
-        return {"ok": True, "message": "If the user exists, a reset token has been issued (in production emailed)."}
-    token = create_password_reset_token(user.username)
-    # In production send email; here we return the token for developer convenience
-    return {"ok": True, "reset_token": token}
-
 @app.post('/api/reset-password')
 async def reset_password(payload: PasswordResetConfirm, db: AsyncSession = Depends(get_session)):
-    username = verify_password_reset_token(payload.token)
-    if len(payload.new_password) < 8:
-        raise HTTPException(status_code=400, detail="Password must be at least 8 characters")
-    user = await get_user_by_username(db, username)
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
-    hashed = get_password_hash(payload.new_password)
-    await update_user_password(db, user.id, hashed)
-    return {"ok": True, "message": "Password reset successful"}
+    # Not supported in this deployment
+    raise HTTPException(status_code=410, detail="Password reset via email is not supported. Contact an administrator to reset your password.")
 
 @app.post('/api/change-password')
 async def change_password(data: PasswordResetConfirm, db: AsyncSession = Depends(get_session), current_user=Depends(get_current_user_header)):

@@ -16,11 +16,7 @@ services:
         sync: true
       - key: APP_ENV
         value: production
-      - key: SENDGRID_API_KEY
-        sync: true
       - key: OPENAI_API_KEY
-        sync: true
-      - key: EMAIL_FROM
         sync: true
       - key: FRONTEND_URL
         sync: true

@@ -12,11 +12,7 @@ export default function App(){
   const [authUser, setAuthUser] = useState(localStorage.getItem('user') ? JSON.parse(localStorage.getItem('user')) : null)
   const [authMode, setAuthMode] = useState('login')
   const [authForm, setAuthForm] = useState({username:'', password:''})
-  const [showResetRequest, setShowResetRequest] = useState(false)
-  const [resetUsername, setResetUsername] = useState('')
-  const [resetToken, setResetToken] = useState('')
-  const [resetNewPassword, setResetNewPassword] = useState('')
-  const [resetMessage, setResetMessage] = useState('')
+
   const wsRef = useRef(null)
 
   useEffect(()=>{
@@ -28,26 +24,6 @@ export default function App(){
     }
   },[token])
 
-  // On mount, check URL for reset token and open reset UI; also show confirmation if reset_success
-  useEffect(()=>{
-    try{
-      const qs = new URLSearchParams(window.location.search)
-      const t = qs.get('reset_token')
-      const ok = qs.get('reset_success')
-      if(t){
-        setResetToken(t)
-        setShowResetRequest(true)
-      }
-      if(ok){
-        // show simple confirmation and redirect to login after short delay
-        alert('Password reset successful. Redirecting to login...')
-        setTimeout(()=>{
-          qs.delete('reset_success')
-          window.location.search = qs.toString()
-        }, 2500)
-      }
-    }catch(e){/* ignore */}
-  },[])
 
   async function loadSessions(){
     try{
@@ -217,53 +193,10 @@ export default function App(){
                   <button onClick={registerUser} className="flex-1 bg-green-600 text-white px-3 py-1 rounded">Register</button>
                 </div>
                 <div className="mt-2 text-sm">
-                  <button onClick={()=>setShowResetRequest(!showResetRequest)} className="text-indigo-600">Forgot password?</button>
+                  <button onClick={()=>alert('Password reset via email is not supported. Contact an administrator to reset your password.')} className="text-indigo-600">Forgot password?</button>
                 </div>
 
-                {showResetRequest && (
-                  <div className="mt-3 border p-3 rounded bg-gray-50">
-                    <input value={resetUsername} onChange={e=>setResetUsername(e.target.value)} placeholder="username for reset" className="w-full border rounded p-2 mb-2" />
-                    <div className="flex gap-2">
-                      <button onClick={async ()=>{
-                        try{
-                          const res = await fetch(`${API}/api/request-password-reset`,{method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({username: resetUsername})})
-                          const data = await res.json()
-                          if(data.reset_token){
-                            setResetToken(data.reset_token)
-                            setResetMessage('Reset token generated (dev). Use it to reset password below.')
-                          }else{
-                            setResetMessage(data.message || 'If the user exists, a reset token was issued.')
-                          }
-                        }catch(e){setResetMessage('Request failed')}
-                      }} className="flex-1 bg-yellow-500 text-white px-3 py-1 rounded">Request reset</button>
-                    </div>
-                    {resetMessage && <div className="mt-2 text-sm text-gray-700">{resetMessage}</div>}
-                    {resetToken && <div className="mt-2 text-sm text-red-600 break-all">Token: {resetToken}</div>}
-                  </div>
-                )}
 
-                {/* Reset form */}
-                <div className="mt-3">
-                  <input value={resetToken} onChange={e=>setResetToken(e.target.value)} placeholder="reset token" className="w-full border rounded p-2 mb-2" />
-                  <input value={resetNewPassword} onChange={e=>setResetNewPassword(e.target.value)} placeholder="new password" type="password" className="w-full border rounded p-2 mb-2" />
-                  <div className="flex gap-2">
-                    <button onClick={async ()=>{
-                      if(resetNewPassword.length < 8){ alert('Password must be at least 8 chars'); return }
-                      try{
-                        const res = await fetch(`${API}/api/reset-password`,{method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({token: resetToken, new_password: resetNewPassword})})
-                        if(res.ok){
-                          // redirect to success confirmation
-                          const qs = new URLSearchParams(window.location.search)
-                          qs.set('reset_success','1')
-                          window.location.search = qs.toString()
-                        }else{
-                          const err = await res.json().catch(()=>null)
-                          alert('Reset failed: ' + (err?.detail || res.status))
-                        }
-                      }catch(e){alert('Reset error')}
-                    }} className="flex-1 bg-blue-600 text-white px-3 py-1 rounded">Reset password</button>
-                  </div>
-                </div>
               </div>
             </div>
           )}

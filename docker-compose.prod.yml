@@ -35,8 +35,6 @@ services:
     environment:
       - DATABASE_URL=postgresql+asyncpg://postgres:password@db:5432/gemini
       - SECRET_KEY=${SECRET_KEY}
-      - SENDGRID_API_KEY=${SENDGRID_API_KEY}
-      - EMAIL_FROM=${EMAIL_FROM}
       - FRONTEND_URL=${FRONTEND_URL}
       - APP_ENV=${APP_ENV}
     depends_on:

@@ -36,11 +36,11 @@ Notes:
 - WebSocket chat endpoint: ws://localhost:8000/ws/chat
 - Sessions: create and select chat sessions in the frontend sidebar; chats are persisted to Postgres per session.
 
-Authentication and password reset:
-- Registration requires username >= 3 chars and password >= 8 chars. Optionally provide an email for password resets.
-- Request password reset: POST `/api/request-password-reset` with `{ "username": "..." }` or `{ "email": "..." }`. If a SendGrid API key and user email are configured, a reset link (and HTML email) is sent to the user containing a link to the frontend with the reset token as a query parameter (e.g. `https://app.example/?reset_token=...`). In development without SendGrid the reset token and a preview link are returned in the API response for convenience.
-- Reset password: POST `/api/reset-password` with `{ "token": "...", "new_password": "..." }`.
+Authentication:
+- Registration requires username >= 3 chars and password >= 8 chars.
 - Change password (authenticated): POST `/api/change-password` with `{ "token": "old_password", "new_password": "..." }`.
+
+Note: Email-based password reset is not supported in this deployment.
 
 Swap model provider by editing `backend/app/openai_adapter.py` — it provides a simple adapter pattern.
 
