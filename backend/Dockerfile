@@ -3,7 +3,7 @@ FROM python:3.11-slim
 # Copy entire repository into the image so builds work whether Docker's build
 # context is the repo root or the `backend` subfolder. Then install whichever
 # requirements file is available (prefer backend/requirements.txt).
-WORKDIR /app/backend
+WORKDIR /app
 COPY . /app
 RUN if [ -f /app/backend/requirements.txt ]; then \
 			pip install --no-cache-dir -r /app/backend/requirements.txt; \
