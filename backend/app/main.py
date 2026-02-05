@@ -218,7 +218,7 @@ async def websocket_endpoint(websocket: WebSocket):
             # save assistant message once streaming finished
             await create_message(db, session_obj.id, 'assistant', buffer)
             await websocket.send_json({"type":"done","session_id": session_obj.id})
-            break
+            
 
     except WebSocketDisconnect:
         print("Client disconnected")
