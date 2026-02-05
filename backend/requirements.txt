@@ -9,7 +9,7 @@ httpx==0.24.1
 python-multipart==0.0.6
 pytest==7.4.2
 python-jose[cryptography]==3.3.0
-passlib==1.9.0
+passlib==1.7.4
 argon2-cffi==21.3.0
 alembic==1.11.1
 sendgrid==6.11.0
