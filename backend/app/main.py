@@ -5,7 +5,7 @@ from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Depends, HTTPExcept
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, EmailStr
 from .db import init_db, get_session
-from .openai_adapter import call_chat, stream_chat
+from .llm_service import call_chat, stream_chat
 from sqlmodel import select
 from .models import Message, Session
 from .crud import create_session, get_sessions, get_session, create_message, get_messages, get_session_by_name, get_user_by_email, create_user, get_user_by_username, update_user_password
