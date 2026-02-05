@@ -17,3 +17,4 @@ slowapi==0.1.5
 prometheus-fastapi-instrumentator==7.1.0
 redis==3.5.3
 aiosqlite==0.18.0
+gunicorn==20.1.0
