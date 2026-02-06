@@ -1,6 +1,7 @@
 import os
 import json
-from typing import Optional
+from .auth import get_user_from_token
+from typing import Optional, AsyncGenerator
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Depends, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, EmailStr
@@ -21,12 +22,12 @@ from prometheus_fastapi_instrumentator import Instrumentator
 import os
 
 @asynccontextmanager
-async def get_ws_db():
-    async for session in get_session():
+async def get_ws_db() -> AsyncGenerator[AsyncSession, None]:
+   async for session in get_session():   # make sure get_session() returns AsyncSession
         try:
             yield session
         finally:
-            break
+            await session.commit() 
 app = FastAPI(title="Gemini-Clone API")
 
 # Application environment
@@ -77,7 +78,7 @@ from .mailer import send_reset_email
 
 @limiter.limit("5/minute")
 @app.post("/api/register")
-async def register(payload: UserCreate, db: AsyncSession = Depends(get_session)):
+async def register(request: Request, payload: UserCreate, db: AsyncSession = Depends(get_session)):
     # validation
     if len(payload.username) < 3:
         raise HTTPException(status_code=400, detail="Username must be at least 3 characters")
@@ -97,7 +98,7 @@ async def register(payload: UserCreate, db: AsyncSession = Depends(get_session))
 
 @limiter.limit("10/minute")
 @app.post("/api/login")
-async def login(payload: UserCreate, db: AsyncSession = Depends(get_session)):
+async def login(request: Request, payload: UserCreate, db: AsyncSession = Depends(get_session)):
     user = await get_user_by_username(db, payload.username)
     if not user or not verify_password(payload.password, user.hashed_password):
         raise HTTPException(status_code=401, detail="Invalid credentials")
@@ -110,7 +111,7 @@ class PasswordResetRequest(BaseModel):
 
 @app.post('/api/request-password-reset')
 @limiter.limit("5/minute")
-async def request_password_reset(payload: PasswordResetRequest, db: AsyncSession = Depends(get_session)):
+async def request_password_reset(request: Request,payload: PasswordResetRequest, db: AsyncSession = Depends(get_session)):
     # Password reset via email is not supported in this deployment.
     # We intentionally do not provide email-based password reset functionality.
     raise HTTPException(status_code=410, detail="Password reset via email is not supported. Contact an administrator to reset your password.")
@@ -192,9 +193,10 @@ async def websocket_endpoint(websocket: WebSocket):
         token = data.get('token')
 
         # get db session via dependency emulation and validate token
-        async with get_ws_db() as db:
+        async for db in get_ws_db():
             user = None
             if token:
+                from .auth import get_user_from_token
                 user = await get_user_from_token(token, db)
 
             # find or create session scoped to user
@@ -211,6 +213,7 @@ async def websocket_endpoint(websocket: WebSocket):
 
             # buffer assistant response while streaming
             buffer = ''
+            from .llm_service import stream_chat 
             async for chunk in stream_chat(prompt):
                 buffer += chunk
                 await websocket.send_json({"type":"chunk","text":chunk})

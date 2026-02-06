@@ -2,11 +2,87 @@ import os
 import asyncio
 from typing import AsyncGenerator
 import httpx
+import aiohttp
+import json
+from dotenv import load_dotenv
 
+load_dotenv()
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 HUGGINGFACE_API_TOKEN = os.getenv("HUGGINGFACE_API_TOKEN")
 
 # Try to keep backward compatibility: if OPENAI_API_KEY is present we will use the OpenAI client; otherwise fall back to Hugging Face if available, otherwise a local echo.
+
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions"
+
+
+async def call_gemini(prompt: str, model: str = "gemini-1.5") -> str:
+    """
+    Call Gemini API for full response (non-streaming).
+    """
+    if not GEMINI_API_KEY:
+        return "(local) Echo: " + prompt
+
+    headers = {
+        "Authorization": f"Bearer {GEMINI_API_KEY}",
+        "Content-Type": "application/json"
+    }
+    payload = {
+        "model": model,
+        "messages": [{"role": "user", "content": prompt}],
+        "temperature": 0.2,
+        "max_output_tokens": 512
+    }
+
+    async with aiohttp.ClientSession() as session:
+        async with session.post(GEMINI_URL, headers=headers, json=payload) as resp:
+            data = await resp.json()
+            # Parse Gemini response
+            try:
+                return data["choices"][0]["message"]["content"]
+            except (KeyError, IndexError):
+                return "(gemini-error) " + str(data)
+
+        
+
+async def stream_gemini(prompt: str, model: str = "gemini-1.5") -> AsyncGenerator[str, None]:
+    """
+    Stream Gemini API responses chunk by chunk (SSE style).
+    """
+    if not GEMINI_API_KEY:
+        for part in f"(local) Echo: {prompt}".split():
+            await asyncio.sleep(0.01)
+            yield part + " "
+        return
+
+    headers = {
+        "Authorization": f"Bearer {GEMINI_API_KEY}",
+        "Content-Type": "application/json"
+    }
+    payload = {
+        "model": model,
+        "messages": [{"role": "user", "content": prompt}],
+        "temperature": 0.2,
+        "max_output_tokens": 512,
+        "stream": True
+    }
+
+    async with aiohttp.ClientSession() as session:
+        async with session.post(GEMINI_URL, headers=headers, json=payload) as resp:
+            async for line_bytes in resp.content:
+                line = line_bytes.decode().strip()
+                if line.startswith("data: "):
+                    line_json = line[6:]
+                    if line_json == "[DONE]":
+                        break
+                    try:
+                        chunk_data = json.loads(line_json)
+                        text = chunk_data["choices"][0]["delta"].get("content")
+                        if text:
+                            yield text
+                    except Exception:
+                        continue
+
 try:
     import openai
     if OPENAI_API_KEY:
@@ -50,7 +126,12 @@ async def call_chat(prompt: str, model: str = "gpt2") -> str:
     # Local fallback for dev/test
     return f"(local) Echo: {prompt}"
 
-async def stream_chat(prompt: str, model: str = "gpt2") -> AsyncGenerator[str, None]:
+
+async def stream_chat(prompt: str, model: str = "gemini-1.5") -> AsyncGenerator[str, None]:
+    if GEMINI_API_KEY:
+        async for chunk in stream_gemini(prompt, model=model):
+            yield chunk
+        return
     """Streaming wrapper — if provider doesn't support streaming, simulate it by chunking the full reply."""
     # If Hugging Face token provided, do a normal call and yield chunks
     if HUGGINGFACE_API_TOKEN:
