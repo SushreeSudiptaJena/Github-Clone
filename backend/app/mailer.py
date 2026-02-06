@@ -1,67 +1,100 @@
 import os
-import asyncio
-from typing import Optional
-from sendgrid import SendGridAPIClient
-from sendgrid.helpers.mail import Mail
-from jinja2 import Environment, FileSystemLoader, select_autoescape
+import logging
+from typing import Optional, Any
 
-BASE_DIR = os.path.abspath(os.path.dirname(__file__))
-TEMPLATES_DIR = os.path.join(BASE_DIR, 'templates')
+logger = logging.getLogger(__name__)
 
-SENDGRID_API_KEY = os.getenv('SENDGRID_API_KEY')
-EMAIL_FROM = os.getenv('EMAIL_FROM', 'no-reply@example.com')
-FRONTEND_URL = os.getenv('FRONTEND_URL', 'http://localhost:3000')
 
-# Setup Jinja environment
-jinja_env = Environment(
-    loader=FileSystemLoader(TEMPLATES_DIR),
-    autoescape=select_autoescape(['html', 'xml'])
-)
+def _build_reset_link(*, reset_link: Optional[str], token: Optional[str]) -> Optional[str]:
+    if reset_link:
+        return reset_link
 
-async def send_reset_email(to_email: str, token: str) -> dict:
-    """Send password reset email using Jinja templates. Returns dict with {'sent': True} when sent.
-    If no SENDGRID_API_KEY is configured, returns {'sent': False, 'token': token, 'preview_link': link} so devs can use it.
+    if not token:
+        return None
+
+    frontend_url = os.getenv("FRONTEND_URL", "").rstrip("/")
+    if not frontend_url:
+        return None
+
+    # common reset route; adjust if your frontend uses a different path
+    return f"{frontend_url}/reset-password?token={token}"
+
+
+def send_reset_email(*args: Any, **kwargs: Any) -> bool:
     """
-    reset_link = f"{FRONTEND_URL}/?reset_token={token}"
+    Send a password reset email.
 
-    # Render templates if available
-    plain_text = f"Reset your password by visiting: {reset_link}\nOr use this token: {token}"
-    html_content = f"<p>Reset your password: <a href=\"{reset_link}\">Reset link</a></p><pre>{token}</pre>"
-    try:
-        txt_t = jinja_env.get_template('reset_email.txt')
-        html_t = jinja_env.get_template('reset_email.html')
-        plain_text = txt_t.render(reset_link=reset_link, token=token)
-        html_content = html_t.render(reset_link=reset_link, token=token)
-    except Exception:
-        # Templates optional; fall back to simple messages
-        pass
+    This function is intentionally tolerant about parameters so it won't break
+    if call sites vary. Supported inputs:
+      - send_reset_email(email, token)
+      - send_reset_email(email, reset_link)
+      - send_reset_email(to_email=..., token=...)
+      - send_reset_email(to_email=..., reset_link=...)
 
-    # Only return token in non-production environments for developer convenience
-    app_env = os.getenv('APP_ENV', 'development')
-    if not SENDGRID_API_KEY:
-        if app_env == 'production':
-            return {'sent': False}
-        return {'sent': False, 'token': token, 'preview_link': reset_link}
-
-    message = Mail(
-        from_email=EMAIL_FROM,
-        to_emails=to_email,
-        subject='Reset your password',
-        plain_text_content=plain_text,
-        html_content=html_content
+    Env vars:
+      - SENDGRID_API_KEY (if missing -> no-op)
+      - SENDGRID_FROM_EMAIL (default: no-op if missing)
+      - FRONTEND_URL (used to build link from token)
+    """
+    # Try to extract email + token/link from args/kwargs
+    to_email = (
+        kwargs.get("to_email")
+        or kwargs.get("email")
+        or kwargs.get("recipient")
+        or (args[0] if len(args) >= 1 else None)
     )
 
-    loop = asyncio.get_event_loop()
-    def _send():
-        sg = SendGridAPIClient(SENDGRID_API_KEY)
-        resp = sg.send(message)
-        return resp
+    second = args[1] if len(args) >= 2 else None
+    token = kwargs.get("token") or (second if isinstance(second, str) and len(second) < 300 else None)
+    reset_link = kwargs.get("reset_link") or kwargs.get("reset_url") or kwargs.get("link")
+    if reset_link is None and isinstance(second, str) and second and second.startswith(("http://", "https://")):
+        reset_link = second
+
+    reset_link = _build_reset_link(reset_link=reset_link, token=token)
+
+    if not to_email or not isinstance(to_email, str):
+        logger.warning("send_reset_email: missing to_email; skipping email send")
+        return False
+
+    api_key = os.getenv("SENDGRID_API_KEY")
+    from_email = os.getenv("SENDGRID_FROM_EMAIL")
+
+    # If not configured, don't crash production deploys—just no-op.
+    if not api_key or not from_email:
+        logger.info(
+            "send_reset_email: SendGrid not configured (missing SENDGRID_API_KEY or SENDGRID_FROM_EMAIL); skipping"
+        )
+        return False
+
+    if not reset_link:
+        logger.warning("send_reset_email: missing reset link/token (and FRONTEND_URL not set); skipping")
+        return False
+
+    subject = kwargs.get("subject") or "Reset your password"
+    html_content = f"""
+    <p>You requested a password reset.</p>
+    <p><a href="{reset_link}">Click here to reset your password</a></p>
+    <p>If you didn’t request this, you can ignore this email.</p>
+    """.strip()
 
     try:
-        resp = await loop.run_in_executor(None, _send)
-        if resp.status_code in (200, 202):
-            return {'sent': True}
-        else:
-            return {'sent': False, 'error': resp.body}
-    except Exception as e:
-        return {'sent': False, 'error': str(e)}
+        # Import lazily so missing dependency doesn't crash app boot.
+        from sendgrid import SendGridAPIClient
+        from sendgrid.helpers.mail import Mail
+
+        message = Mail(
+            from_email=from_email,
+            to_emails=to_email,
+            subject=subject,
+            html_content=html_content,
+        )
+        sg = SendGridAPIClient(api_key)
+        resp = sg.send(message)
+        logger.info("send_reset_email: sent to=%s status=%s", to_email, getattr(resp, "status_code", None))
+        return True
+    except ModuleNotFoundError:
+        logger.info("send_reset_email: sendgrid package not installed; skipping")
+        return False
+    except Exception:
+        logger.exception("send_reset_email: failed to send email")
+        return False
