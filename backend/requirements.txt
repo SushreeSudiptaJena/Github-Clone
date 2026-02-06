@@ -5,6 +5,7 @@ SQLAlchemy==1.4.41
 asyncpg==0.28.0
 email-validator==2.1.1
 python-dotenv==1.0.0
+aiohttp>=3.9,<4
 openai==1.29.0
 httpx==0.24.1
 python-multipart==0.0.6

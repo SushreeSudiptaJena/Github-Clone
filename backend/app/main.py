@@ -5,11 +5,16 @@ from typing import Optional, AsyncGenerator
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Depends, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, EmailStr
-from .db import init_db, get_session
+from .db import init_db, get_session as get_db_session
+from .crud import (
+    create_session, get_sessions,
+    get_session as get_crud_session,
+    create_message, get_messages,
+    get_session_by_name, get_user_by_email, create_user, get_user_by_username, update_user_password
+)
 from .llm_service import call_chat, stream_chat
 from sqlmodel import select
 from .models import Message, Session
-from .crud import create_session, get_sessions, get_session, create_message, get_messages, get_session_by_name, get_user_by_email, create_user, get_user_by_username, update_user_password
 import asyncio
 from sqlmodel.ext.asyncio.session import AsyncSession
 from .llm_service import call_chat, stream_chat
@@ -78,7 +83,7 @@ from .mailer import send_reset_email
 
 @limiter.limit("5/minute")
 @app.post("/api/register")
-async def register(request: Request, payload: UserCreate, db: AsyncSession = Depends(get_session)):
+async def register(request: Request, payload: UserCreate, db: AsyncSession = Depends(get_db_session)):
     # validation
     if len(payload.username) < 3:
         raise HTTPException(status_code=400, detail="Username must be at least 3 characters")
@@ -98,7 +103,7 @@ async def register(request: Request, payload: UserCreate, db: AsyncSession = Dep
 
 @limiter.limit("10/minute")
 @app.post("/api/login")
-async def login(request: Request, payload: UserCreate, db: AsyncSession = Depends(get_session)):
+async def login(request: Request, payload: UserCreate, db: AsyncSession = Depends(get_db_session)):
     user = await get_user_by_username(db, payload.username)
     if not user or not verify_password(payload.password, user.hashed_password):
         raise HTTPException(status_code=401, detail="Invalid credentials")
@@ -193,7 +198,7 @@ async def websocket_endpoint(websocket: WebSocket):
         token = data.get('token')
 
         # get db session via dependency emulation and validate token
-        async for db in get_ws_db():
+        async with get_ws_db() as db:
             user = None
             if token:
                 from .auth import get_user_from_token
